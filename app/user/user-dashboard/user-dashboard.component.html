@@ -1,0 +1,18 @@
+<mat-toolbar>
+
+  <button mat-icon-button>
+    <mat-icon>arrow_back</mat-icon>
+  </button>
+  <span class="spacer"></span>
+
+  <button mat-button (click)="editing=false" *ngIf="editing">Done</button>
+  <button mat-button (click)="editing=true" *ngIf="!editing">Edit Profile</button>
+
+</mat-toolbar>
+
+<ng-container *ngIf="user">
+
+  <div [hidden]="editing">view mode</div>
+  <div [hidden]="!editing">editing mode</div>
+
+</ng-container>
