@@ -1,5 +1,9 @@
 import { Injectable } from '@angular/core';
 import { Router } from '@angular/router';
+
+//1- importer tout les modules de firebase
+import * as firebase from 'firebase/app';
+
 import { AngularFireAuth } from 'angularfire2/auth';
 import {
   AngularFirestore,
@@ -9,6 +13,7 @@ import {
 import { Observable } from 'rxjs/Observable';
 import 'rxjs/add/operator/switchMap';
 import {Md5} from 'ts-md5/dist/md5';
+import {error} from "util";
 
 interface User {
   uid: string;
@@ -21,6 +26,7 @@ interface User {
 export class AuthService {
 
   user: Observable<User>;
+  authState: any = null;
 
   constructor(
     private afAuth: AngularFireAuth,
@@ -34,7 +40,16 @@ export class AuthService {
       } else {
         return Observable.of(null)
       }
-    })
+    });
+    this.afAuth.authState.subscribe(data => this.authState = data)
+  }
+
+  get authentificated(): boolean {
+    return this.authState !== null
+  }
+
+  get currentUserId(): string {
+    return this.authentificated ? this.authState.uid : null
   }
 
   emailSignIn(email: string, password: string) {
@@ -45,11 +60,29 @@ export class AuthService {
 
   emailSignUp(email: string, password: string) {
     return this.afAuth.auth.createUserWithEmailAndPassword(email, password)
-    /*
-     On met directement à jour les données de l'utilisateur à la création (pseudo, phtoto ...)
-     */
       .then(user => this.updateUserData(user))
       .then(() => console.log("Welcome ! Your account has been successfully created."))
+      /*
+        On apporte une modification interresante à la fonction. Nous allons envoyer un email
+        de vérification lorsque l'utilisateur sera crée.
+       */
+      .then(user => {
+        this.afAuth.auth.currentUser.sendEmailVerification()
+            .then(() => console.log("We have sent you an email vérification"))
+            .catch(error => console.log(error.message))
+      })
+      .catch(error => console.log(error.message))
+  }
+
+  //2- Créer la fonction resetPassword
+
+  /*
+   Cette fonction retourne un email à l'utilisateur permettant de reseter son mdp.
+   */
+
+  resetPassword(email: string){
+    return firebase.auth().sendPasswordResetEmail(email)
+      .then(() => console.log("We've sent you an password reset link"))
       .catch(error => console.log(error.message))
   }
 
@@ -58,6 +91,39 @@ export class AuthService {
       .then(() => {
         this.router.navigate(['/'])
       })
+  }
+
+  //2- fonction represantant les différents socials media
+  // qui passeront en paramettre dans la fonction "socialLogin"
+
+  googleLogin() {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    return this.socialLogin(provider)
+  }
+
+  facebookLogin() {
+    const provider = new firebase.auth.FacebookAuthProvider();
+    return this.socialLogin(provider)
+  }
+
+  twitterLogin() {
+    const provider = new firebase.auth.TwitterAuthProvider();
+    return this.socialLogin(provider)
+  }
+
+  githubLogin() {
+    const provider = new firebase.auth.GithubAuthProvider();
+    return this.socialLogin(provider)
+  }
+
+  //1- fonction permettant d'authentifier via un réseau social
+  private socialLogin(provider){
+    //return this.afAuth.auth.signInWithRedirect(provider)
+    return this.afAuth.auth.signInWithPopup(provider)
+      .then(credential => {
+        return this.updateUserData(credential.user)
+      })
+      .catch(error => console.log(error.message))
   }
 
   private updateUserData(user){
